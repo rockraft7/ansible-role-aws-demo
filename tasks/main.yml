@@ -1,0 +1,37 @@
+---
+# tasks file for ansible-role-mgmt-vpc
+
+- name: Print current dir
+  debug:
+    msg: "Current dir {{ playbook_dir }}, role: {{ role_path }}"
+
+- name: Create key pair for mgmt instances
+  ec2_key:
+    name: "{{ mgmt_key_pair }}"
+    key_material: "{{ item }}"
+    region: "{{ region }}"
+  with_file: "{{ mgmt_key_path }}"
+
+- name: Prepare cloudformation template
+  template:
+    src: templates/create_mgmt_vpc.yml
+    dest: /tmp/create_mgmt_vpc.yml
+    mode: 0755
+
+- name: Launch mgmt vpc creation
+  cloudformation:
+    stack_name: mgmt-vpc
+    state: present
+    region: "{{ region }}"
+    disable_rollback: true
+    template: "{{ role_path }}/templates/create_mgmt_vpc.yml"
+    template_parameters:
+      MainCidrBlock: "{{ main_cidr_block }}"
+      VpnCidrBlock: "{{ vpn_cidr_block }}"
+      NatCidrBlock: "{{ nat_cidr_block }}"
+      ToolingCidrBlock: "{{ tooling_cidr_block }}"
+      AvailabilityZone: "{{ availability_zone }}"
+      NatInstanceType: "{{ nat_instance_type }}"
+      MgmtKeyPairName: "{{ mgmt_key_pair }}"
+    tags:
+      Name: Management VPC Stack

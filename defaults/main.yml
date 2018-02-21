@@ -1,0 +1,12 @@
+---
+# defaults file for ansible-role-mgmt-vpc
+
+main_cidr_block: 192.168.66.0/23
+vpn_cidr_block: 192.168.66.0/28
+nat_cidr_block: 192.168.66.16/28
+tooling_cidr_block: 192.168.66.32/28
+region: us-east-1
+availability_zone: us-east-1a
+nat_instance_type: t2.micro
+mgmt_key_pair: mgmt-key-pair
+mgmt_key_path: files/id_rsa.pub

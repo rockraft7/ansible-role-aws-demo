@@ -1,0 +1,201 @@
+---
+# 00-create_mgmt_vpc.yml
+# Creates management VPC and underlying subnets
+
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  MainCidrBlock:
+    Type: String
+    Default: 192.168.66.0/23
+    Description: Primary CIDR block for the VPC
+  
+  VpnCidrBlock:
+    Type: String
+    Default: 192.168.66.0/28
+    Description: CIDR block for VPN subnet
+
+  NatCidrBlock:
+    Type: String
+    Default: 192.168.66.16/28
+    Description: CIDR block for NAT subnet
+
+  ToolingCidrBlock:
+    Type: String
+    Default: 192.168.66.32/28
+    Description: CIDR block for tooling subnet
+
+  AvailabilityZone:
+    Type: String
+    Default: us-east-1a
+    Description: Availability zone for all subnets
+  
+  NatInstanceType:
+    Type: String
+    Default: t2.micro
+    Description: Size of NAT instance.
+  
+  MgmtKeyPairName:
+    Type: String
+    Default: mgmt-key-pair
+    Description: Name of management key pair
+
+Resources:
+  MgmtVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref MainCidrBlock
+      EnableDnsSupport: 'false'
+      EnableDnsHostnames: 'false'
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: mgmt-vpc
+  
+  MgmtIGW:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: mgmt-igw
+    DependsOn: MgmtVPC
+  
+  AttachMgmtIgw:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref MgmtIGW
+      VpcId: !Ref MgmtVPC
+
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref MgmtVPC
+      Tags:
+        - Key: Name
+          Value: mgmt-pub-rt
+    DependsOn: MgmtVPC
+  
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref MgmtVPC
+      Tags:
+        - Key: Name
+          Value: mgmt-priv-rt
+    DependsOn: MgmtVPC
+  
+  IGWRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref MgmtIGW
+      RouteTableId: !Ref PublicRouteTable
+  
+  VPNSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: !Ref VpnCidrBlock
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: Name
+          Value: vpn-mgmt-subnet
+      VpcId: !Ref MgmtVPC
+    DependsOn: MgmtIGW
+
+  VPNSubnetAssociateRT:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref VPNSubnet
+  
+  NatSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: !Ref NatCidrBlock
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: Name
+          Value: nat-mgmt-subnet
+      VpcId: !Ref MgmtVPC
+    DependsOn: MgmtIGW
+
+  NatSubnetAssociateRT:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref NatSubnet
+
+  ToolingSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: !Ref ToolingCidrBlock
+      Tags:
+        - Key: Name
+          Value: tools-mgmt-subnet
+      VpcId: !Ref MgmtVPC
+    DependsOn: MgmtIGW
+
+  ToolingSubnetAssociateRT:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref ToolingSubnet
+
+  NatSG:
+    Type: "AWS::EC2::SecurityGroup"
+    DependsOn: MgmtVPC
+    Properties:
+      GroupName: "mgmt-sg"
+      GroupDescription: "Security group for NAT instance."
+      VpcId: !Ref MgmtVPC
+      Tags:
+        - Key: Name
+          Value: nat-mgmt-sg
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: !Ref MainCidrBlock
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: !Ref MainCidrBlock
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref MainCidrBlock
+
+  NATInstance:
+    Type: "AWS::EC2::Instance"
+    DependsOn: NatSubnet
+    Properties:
+      ImageId: "ami-01623d7b"
+      InstanceType: !Ref NatInstanceType
+      KeyName: !Ref MgmtKeyPairName
+      SourceDestCheck: "false"
+      SecurityGroupIds:
+        - !Ref NatSG
+      SubnetId: !Ref NatSubnet
+      Tags:
+        - Key: Name
+          Value: "nat-mgmt-instance"
+
+  NatRoute:
+    Type: 'AWS::EC2::Route'
+    DependsOn: NATInstance
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      InstanceId: !Ref NATInstance
+      RouteTableId: !Ref PrivateRouteTable
