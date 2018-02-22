@@ -1,0 +1,120 @@
+---
+
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  MgmtVpcStackName:
+    Type: String
+    Description: The name of Management VPC stack name
+    Default: mgmt-vpc
+
+  MgmtKeyPairName:
+    Type: String
+    Default: mgmt-key-pair
+    Description: Name of management key pair
+
+  BamboInstanceType:
+    Type: String
+    Default: t2.micro
+    Description: Instance size for bamboo
+
+  JiraInstanceType:
+    Type: String
+    Default: t2.micro
+    Description: Instance size for bamboo
+
+  BitbucketInstanceType:
+    Type: String
+    Default: t2.micro
+    Description: Instance size for bamboo
+
+Resources:
+  ToolingSG:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupName: "tooling-mgmt-sg"
+      GroupDescription: "Security group for Bamboo instance."
+      VpcId: 
+        Fn::ImportValue:
+          !Sub
+            - "${StackName}-VpcID"
+            - {StackName: !Ref MgmtVpcStackName}
+      Tags:
+        - Key: Name
+          Value: bamboo-tooling-mgmt-sg
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 
+            Fn::ImportValue: 
+              !Sub
+                - "${StackName}-MainCidr"
+                - {StackName: !Ref MgmtVpcStackName}
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: 
+            Fn::ImportValue: 
+              !Sub
+                - "${StackName}-MainCidr"
+                - {StackName: !Ref MgmtVpcStackName}
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 
+            Fn::ImportValue: 
+              !Sub
+                - "${StackName}-MainCidr"
+                - {StackName: !Ref MgmtVpcStackName}
+
+  BambooInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: "ami-97785bed"
+      InstanceType: !Ref BamboInstanceType
+      KeyName: !Ref MgmtKeyPairName
+      SecurityGroupIds:
+        - !Ref ToolingSG
+      SubnetId: 
+        Fn::ImportValue: 
+          !Sub
+            - "${StackName}-ToolingSubnetId"
+            - {StackName: !Ref MgmtVpcStackName}
+      Tags:
+        - Key: Name
+          Value: "bamboo-mgmt-instance"
+
+  JiraInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: "ami-97785bed"
+      InstanceType: !Ref JiraInstanceType
+      KeyName: !Ref MgmtKeyPairName
+      SecurityGroupIds:
+        - !Ref ToolingSG
+      SubnetId: 
+        Fn::ImportValue: 
+          !Sub
+            - "${StackName}-ToolingSubnetId"
+            - {StackName: !Ref MgmtVpcStackName}
+      Tags:
+        - Key: Name
+          Value: "jira-mgmt-instance"
+  
+  BitbucketInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: "ami-97785bed"
+      InstanceType: !Ref BitbucketInstanceType
+      KeyName: !Ref MgmtKeyPairName
+      SecurityGroupIds:
+        - !Ref ToolingSG
+      SubnetId: 
+        Fn::ImportValue: 
+          !Sub
+            - "${StackName}-ToolingSubnetId"
+            - {StackName: !Ref MgmtVpcStackName}
+      Tags:
+        - Key: Name
+          Value: "bitbucket-mgmt-instance"

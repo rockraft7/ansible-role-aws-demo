@@ -20,10 +20,10 @@
 
 - name: Launch mgmt vpc creation
   cloudformation:
-    stack_name: mgmt-vpc
+    stack_name: "{{ vpc_stack_name }}"
     state: present
     region: "{{ region }}"
-    disable_rollback: true
+    disable_rollback: false
     template: "{{ role_path }}/templates/create_mgmt_vpc.yml"
     template_parameters:
       MainCidrBlock: "{{ main_cidr_block }}"
@@ -35,3 +35,19 @@
       MgmtKeyPairName: "{{ mgmt_key_pair }}"
     tags:
       Name: Management VPC Stack
+
+- block:
+  - name: Launch dev tools creation
+    cloudformation:
+      stack_name: dev-tools
+      state: present
+      region: "{{ region }}"
+      disable_rollback: false
+      template: "{{ role_path }}/templates/create_atlassian_tools.yml"
+      template_parameters:
+        MgmtVpcStackName: "{{ vpc_stack_name }}"
+        MgmtKeyPairName: "{{ mgmt_key_pair }}"
+        BamboInstanceType: "{{ bamboo_instance_type }}"
+        JiraInstanceType: "{{ jira_instance_type }}"
+        BitbucketInstanceType: "{{ bitbucket_instance_type }}"
+  when: install_atlassian

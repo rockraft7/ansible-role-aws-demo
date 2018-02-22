@@ -10,3 +10,9 @@ availability_zone: us-east-1a
 nat_instance_type: t2.micro
 mgmt_key_pair: mgmt-key-pair
 mgmt_key_path: files/id_rsa.pub
+
+vpc_stack_name: mgmt-vpc
+bamboo_instance_type: t2.micro
+jira_instance_type: t2.micro
+bitbucket_instance_type: t2.micro
+install_atlassian: true

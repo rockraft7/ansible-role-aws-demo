@@ -36,9 +36,19 @@ Parameters:
     Description: Size of NAT instance.
   
   MgmtKeyPairName:
-    Type: String
+    Type: AWS::EC2::KeyPair::KeyName
     Default: mgmt-key-pair
     Description: Name of management key pair
+
+  InternalDNS:
+    Type: String
+    Default: local
+    Description: Internal domain resolver.
+
+  OvpnInstanceType:
+    Type: String
+    Default: t2.micro
+    Description: OpenVPN instance type
 
 Resources:
   MgmtVPC:
@@ -51,6 +61,20 @@ Resources:
       Tags:
         - Key: Name
           Value: mgmt-vpc
+
+  InternalHostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties: 
+      HostedZoneConfig:
+        Comment: "Hosted zone for internal resolver."
+      HostedZoneTags:
+        - Key: Name
+          Value: InternalHostedZone
+      Name: !Ref InternalDNS
+      VPCs:
+        -
+          VPCId: !Ref MgmtVPC
+          VPCRegion: !Ref AWS::Region
   
   MgmtIGW:
     Type: 'AWS::EC2::InternetGateway'
@@ -148,7 +172,7 @@ Resources:
     Type: "AWS::EC2::SecurityGroup"
     DependsOn: MgmtVPC
     Properties:
-      GroupName: "mgmt-sg"
+      GroupName: "nat-mgmt-sg"
       GroupDescription: "Security group for NAT instance."
       VpcId: !Ref MgmtVPC
       Tags:
@@ -199,107 +223,64 @@ Resources:
       DestinationCidrBlock: '0.0.0.0/0'
       InstanceId: !Ref NATInstance
       RouteTableId: !Ref PrivateRouteTable
-  
-  ToolingSG:
+
+  OvpnSG:
     Type: "AWS::EC2::SecurityGroup"
     DependsOn: MgmtVPC
     Properties:
-      GroupName: "tooling-mgmt-sg"
-      GroupDescription: "Security group for Bamboo instance."
-      VpcId: !Ref MgmtVPC
-      Tags:
-        - Key: Name
-          Value: bamboo-tooling-mgmt-sg
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: '80'
-          ToPort: '80'
-          CidrIp: !Ref MainCidrBlock
-        - IpProtocol: tcp
-          FromPort: '443'
-          ToPort: '443'
-          CidrIp: !Ref MainCidrBlock
-        - IpProtocol: tcp
-          FromPort: '22'
-          ToPort: '22'
-          CidrIp: !Ref MainCidrBlock
-
-  BambooInstance:
-    Type: "AWS::EC2::Instance"
-    DependsOn: ToolingSubnet
-    Properties:
-      ImageId: "<amazon linux image>"
-      InstanceType: !Ref BamboInstanceType
-      KeyName: !Ref MgmtKeyPairName
-      SecurityGroupIds:
-        - !Ref ToolingSG
-      SubnetId: !Ref ToolingSubnet
-      Tags:
-        - Key: Name
-          Value: "bamboo-mgmt-instance"
-
-  JiraInstance:
-    Type: "AWS::EC2::Instance"
-    DependsOn: ToolingSubnet
-    Properties:
-      ImageId: "<amazon linux image>"
-      InstanceType: !Ref JiraInstanceType
-      KeyName: !Ref MgmtKeyPairName
-      SecurityGroupIds:
-        - !Ref ToolingSG
-      SubnetId: !Ref ToolingSubnet
-      Tags:
-        - Key: Name
-          Value: "jira-mgmt-instance"
-  
-  BitbucketInstance:
-    Type: "AWS::EC2::Instance"
-    DependsOn: ToolingSubnet
-    Properties:
-      ImageId: "<amazon linux image>"
-      InstanceType: !Ref BitbucketInstanceType
-      KeyName: !Ref MgmtKeyPairName
-      SecurityGroupIds:
-        - !Ref ToolingSG
-      SubnetId: !Ref ToolingSubnet
-      Tags:
-        - Key: Name
-          Value: "bitbucket-mgmt-instance"
-  
-  OpenVPNSG:
-    Type: "AWS::EC2::SecurityGroup"
-    DependsOn: MgmtVPC
-    Properties:
-      GroupName: "vpn-mgmt-sg"
+      GroupName: "ovpn-mgmt-sg"
       GroupDescription: "Security group for OpenVPN instance."
       VpcId: !Ref MgmtVPC
       Tags:
         - Key: Name
-          Value: openvpn-vpn-mgmt-sg
+          Value: ovpn-mgmt-sg
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: '80'
-          ToPort: '80'
-          CidrIp: !Ref MainCidrBlock
+        - IpProtocol: udp
+          FromPort: '1194'
+          ToPort: '1194'
+          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: '443'
           ToPort: '443'
-          CidrIp: !Ref MainCidrBlock
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '943'
+          ToPort: '943'
+          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: '22'
           ToPort: '22'
-          CidrIp: !Ref MainCidrBlock
+          CidrIp: 0.0.0.0/0
 
   OpenVPNInstance:
-    Type: "AWS::EC2::Instance"
+    Type: AWS::EC2::Instance
     DependsOn: VPNSubnet
     Properties:
-      ImageId: "<amazon linux image>"
-      InstanceType: !Ref OVPNInstanceType
+      ImageId: "ami-f6eed4e0"
+      InstanceType: !Ref OvpnInstanceType
       KeyName: !Ref MgmtKeyPairName
       SecurityGroupIds:
-        - !Ref OpenVPNSG
+        - !Ref OvpnSG
       SubnetId: !Ref VPNSubnet
       Tags:
         - Key: Name
           Value: "ovpn-mgmt-instance"
+
+Outputs:
+  MainCidrBlockOut:
+    Description: Main CIDR block for the VPC
+    Value: !Ref MainCidrBlock
+    Export: 
+      Name: !Sub '${AWS::StackName}-MainCidr'
+  
+  ToolingSubnetId:
+    Description: Subnet ID for Tools
+    Value: !Ref ToolingSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-ToolingSubnetId'
+
+  VpcId:
+    Description: ID for the VPC
+    Value: !Ref MgmtVPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VpcID'
