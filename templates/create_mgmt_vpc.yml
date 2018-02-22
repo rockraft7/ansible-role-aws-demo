@@ -52,6 +52,11 @@ Parameters:
     Type: String
     Default: Z3VVTQZF6UK7RM
     Description: Public hosted zone id in Route 53
+  
+  OvpnDomainName:
+    Type: String
+    Default: openvpn.cloud.faizalsidek.com
+    Description: Domain name for OpenVPN
 
 Resources:
   MgmtVPC:
@@ -185,18 +190,7 @@ Resources:
           Value: nat-mgmt-sg
       SecurityGroupEgress:
         - IpProtocol: -1
-#        - IpProtocol: tcp
-#          FromPort: '80'
-#          ToPort: '80'
-#          CidrIp: 0.0.0.0/0
-#        - IpProtocol: tcp
-#          FromPort: '80'
-#          ToPort: '80'
-#          CidrIp: 0.0.0.0/0
-#        - IpProtocol: tcp
-#          FromPort: '443'
-#          ToPort: '443'
-#          CidrIp: 0.0.0.0/0
+          CidrIp: 0.0.0.0/0
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: '80'
@@ -211,6 +205,8 @@ Resources:
           ToPort: '22'
           CidrIp: !Ref MainCidrBlock
         - IpProtocol: icmp
+          FromPort: '-1'
+          ToPort: '-1'
           CidrIp: !Ref MainCidrBlock
 
   NATInstance:
@@ -283,7 +279,7 @@ Resources:
     Properties:
       HostedZoneId: !Ref PublicHostedZoneId
       Comment: DNS name for OpenVPN
-      Name: openvpn.cloud.faizalsidek.com
+      Name: !Ref OvpnDomainName
       Type: A
       TTL: '900'
       ResourceRecords:

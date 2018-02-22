@@ -27,6 +27,10 @@
       AvailabilityZone: "{{ availability_zone }}"
       NatInstanceType: "{{ nat_instance_type }}"
       MgmtKeyPairName: "{{ mgmt_key_pair }}"
+      InternalDNS: "{{ internal_dns_suffix }}"
+      OvpnDomainName: "{{ openvpn_domain_name }}"
+      OvpnInstanceType: "{{ ovpn_instance_type }}"
+      PublicHostedZoneId: "{{ public_hosted_zone_id }}"
     tags:
       Name: Management VPC Stack
 
