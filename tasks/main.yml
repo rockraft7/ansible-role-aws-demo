@@ -12,12 +12,6 @@
     region: "{{ region }}"
   with_file: "{{ mgmt_key_path }}"
 
-- name: Prepare cloudformation template
-  template:
-    src: templates/create_mgmt_vpc.yml
-    dest: /tmp/create_mgmt_vpc.yml
-    mode: 0755
-
 - name: Launch mgmt vpc creation
   cloudformation:
     stack_name: "{{ vpc_stack_name }}"

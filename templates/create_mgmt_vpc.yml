@@ -1,6 +1,4 @@
 ---
-# 00-create_mgmt_vpc.yml
-# Creates management VPC and underlying subnets
 
 AWSTemplateFormatVersion: '2010-09-09'
 
@@ -50,13 +48,18 @@ Parameters:
     Default: t2.micro
     Description: OpenVPN instance type
 
+  PublicHostedZoneId:
+    Type: String
+    Default: Z3VVTQZF6UK7RM
+    Description: Public hosted zone id in Route 53
+
 Resources:
   MgmtVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref MainCidrBlock
-      EnableDnsSupport: 'false'
-      EnableDnsHostnames: 'false'
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
       InstanceTenancy: default
       Tags:
         - Key: Name
@@ -132,6 +135,7 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref VPNSubnet
+    DependsOn: MgmtIGW
   
   NatSubnet:
     Type: "AWS::EC2::Subnet"
@@ -150,6 +154,7 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref NatSubnet
+    DependsOn: MgmtIGW
 
   ToolingSubnet:
     Type: "AWS::EC2::Subnet"
@@ -179,14 +184,19 @@ Resources:
         - Key: Name
           Value: nat-mgmt-sg
       SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: '80'
-          ToPort: '80'
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: '443'
-          ToPort: '443'
-          CidrIp: 0.0.0.0/0
+        - IpProtocol: -1
+#        - IpProtocol: tcp
+#          FromPort: '80'
+#          ToPort: '80'
+#          CidrIp: 0.0.0.0/0
+#        - IpProtocol: tcp
+#          FromPort: '80'
+#          ToPort: '80'
+#          CidrIp: 0.0.0.0/0
+#        - IpProtocol: tcp
+#          FromPort: '443'
+#          ToPort: '443'
+#          CidrIp: 0.0.0.0/0
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: '80'
@@ -199,6 +209,8 @@ Resources:
         - IpProtocol: tcp
           FromPort: '22'
           ToPort: '22'
+          CidrIp: !Ref MainCidrBlock
+        - IpProtocol: icmp
           CidrIp: !Ref MainCidrBlock
 
   NATInstance:
@@ -266,6 +278,17 @@ Resources:
         - Key: Name
           Value: "ovpn-mgmt-instance"
 
+  OvpnRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref PublicHostedZoneId
+      Comment: DNS name for OpenVPN
+      Name: openvpn.cloud.faizalsidek.com
+      Type: A
+      TTL: '900'
+      ResourceRecords:
+      - !GetAtt OpenVPNInstance.PublicIp
+
 Outputs:
   MainCidrBlockOut:
     Description: Main CIDR block for the VPC
@@ -284,3 +307,15 @@ Outputs:
     Value: !Ref MgmtVPC
     Export:
       Name: !Sub '${AWS::StackName}-VpcID'
+  
+  HostedZone:
+    Description: ID of the hosted zone DNS
+    Value: !Ref InternalHostedZone
+    Export:
+      Name: !Sub "${AWS::StackName}-HostedZone"
+  
+  DomainSuffix:
+    Description: Domain name suffix
+    Value: !Ref InternalDNS
+    Export:
+      Name: !Sub "${AWS::StackName}-DnsSuffix"

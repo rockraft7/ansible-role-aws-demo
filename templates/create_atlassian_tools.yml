@@ -84,6 +84,28 @@ Resources:
       Tags:
         - Key: Name
           Value: "bamboo-mgmt-instance"
+  
+  BambooRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Fn::ImportValue:
+          !Sub
+            - "${StackName}-HostedZone"
+            - {StackName: !Ref MgmtVpcStackName}
+      Comment: DNS name for Bamboo
+      Name: !Join
+        - ''
+        - - 'bamboo.engineering.'
+          - 
+            Fn::ImportValue:
+              !Sub
+                - "${StackName}-DnsSuffix"
+                - {StackName: !Ref MgmtVpcStackName}
+      Type: A
+      TTL: '900'
+      ResourceRecords:
+      - !GetAtt BambooInstance.PrivateIp
 
   JiraInstance:
     Type: "AWS::EC2::Instance"
@@ -102,6 +124,28 @@ Resources:
         - Key: Name
           Value: "jira-mgmt-instance"
   
+  JiraRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Fn::ImportValue:
+          !Sub
+            - "${StackName}-HostedZone"
+            - {StackName: !Ref MgmtVpcStackName}
+      Comment: DNS name for JIRA
+      Name: !Join
+        - ''
+        - - 'jira.engineering.'
+          - 
+            Fn::ImportValue:
+              !Sub
+                - "${StackName}-DnsSuffix"
+                - {StackName: !Ref MgmtVpcStackName}
+      Type: A
+      TTL: '900'
+      ResourceRecords:
+      - !GetAtt JiraInstance.PrivateIp
+
   BitbucketInstance:
     Type: "AWS::EC2::Instance"
     Properties:
@@ -118,3 +162,25 @@ Resources:
       Tags:
         - Key: Name
           Value: "bitbucket-mgmt-instance"
+
+  BitbucketRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Fn::ImportValue:
+          !Sub
+            - "${StackName}-HostedZone"
+            - {StackName: !Ref MgmtVpcStackName}
+      Comment: DNS name for Bitbucket
+      Name: !Join
+        - ''
+        - - 'bitbucket.engineering.'
+          - 
+            Fn::ImportValue:
+              !Sub
+                - "${StackName}-DnsSuffix"
+                - {StackName: !Ref MgmtVpcStackName}
+      Type: A
+      TTL: '900'
+      ResourceRecords:
+      - !GetAtt BitbucketInstance.PrivateIp
