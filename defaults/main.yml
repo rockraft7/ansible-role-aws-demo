@@ -10,3 +10,13 @@ availability_zone: us-east-1a
 nat_instance_type: t2.micro
 mgmt_key_pair: mgmt-key-pair
 mgmt_key_path: files/id_rsa.pub
+internal_dns_suffix: local
+ovpn_instance_type: t2.micro
+openvpn_domain_name: openvpn.cloud.faizalsidek.com
+public_hosted_zone_id: Z3VVTQZF6UK7RM
+vpc_stack_name: mgmt-vpc
+
+install_atlassian: true
+bamboo_instance_type: t2.micro
+jira_instance_type: t2.micro
+bitbucket_instance_type: t2.micro

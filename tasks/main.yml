@@ -12,18 +12,12 @@
     region: "{{ region }}"
   with_file: "{{ mgmt_key_path }}"
 
-- name: Prepare cloudformation template
-  template:
-    src: templates/create_mgmt_vpc.yml
-    dest: /tmp/create_mgmt_vpc.yml
-    mode: 0755
-
 - name: Launch mgmt vpc creation
   cloudformation:
-    stack_name: mgmt-vpc
+    stack_name: "{{ vpc_stack_name }}"
     state: present
     region: "{{ region }}"
-    disable_rollback: true
+    disable_rollback: false
     template: "{{ role_path }}/templates/create_mgmt_vpc.yml"
     template_parameters:
       MainCidrBlock: "{{ main_cidr_block }}"
@@ -33,5 +27,25 @@
       AvailabilityZone: "{{ availability_zone }}"
       NatInstanceType: "{{ nat_instance_type }}"
       MgmtKeyPairName: "{{ mgmt_key_pair }}"
+      InternalDNS: "{{ internal_dns_suffix }}"
+      OvpnDomainName: "{{ openvpn_domain_name }}"
+      OvpnInstanceType: "{{ ovpn_instance_type }}"
+      PublicHostedZoneId: "{{ public_hosted_zone_id }}"
     tags:
       Name: Management VPC Stack
+
+- block:
+  - name: Launch dev tools creation
+    cloudformation:
+      stack_name: dev-tools
+      state: present
+      region: "{{ region }}"
+      disable_rollback: false
+      template: "{{ role_path }}/templates/create_atlassian_tools.yml"
+      template_parameters:
+        MgmtVpcStackName: "{{ vpc_stack_name }}"
+        MgmtKeyPairName: "{{ mgmt_key_pair }}"
+        BamboInstanceType: "{{ bamboo_instance_type }}"
+        JiraInstanceType: "{{ jira_instance_type }}"
+        BitbucketInstanceType: "{{ bitbucket_instance_type }}"
+  when: install_atlassian
